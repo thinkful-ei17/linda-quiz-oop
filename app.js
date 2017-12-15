@@ -1,12 +1,6 @@
 'use strict';
 /* global $ */
 
-const BASE_API_URL = 'https://opentdb.com';
-const TOP_LEVEL_COMPONENTS = [
-  'js-intro', 'js-question', 'js-question-feedback', 
-  'js-outro', 'js-quiz-status'
-];
-
 let QUESTIONS = [];
 
 // token is global because store is reset between quiz games, but token should persist for 
@@ -17,11 +11,9 @@ const getInitialStore = function(){
     currentQuestionIndex: null,
     userAnswers: [],
     feedback: null,
-    sessionToken,
+    sessionToken, //yes
   };
 };
-
-let store = getInitialStore();
 
 // Helper functions
 // ===============
@@ -82,13 +74,13 @@ Renderer.prototype.TOP_LEVEL_COMPONENTS = [
 ];
 class Store {
   constructor() {
-  this.feedback = null;
-  this.userAnswer
-  this.QUESTION //render and template
+    this.feedback = null;
+    this.userAnswer;
+    this.QUESTION; //render and template
   }
 
   getFeedback() {
-    return 
+    return; 
   }
 }
 
@@ -97,18 +89,22 @@ class Renderer {
     this.api = api; //obtains the question data and keeps it constant throughout rendering?
     this.feedback = null;
     this.page = 'intro';
-    currentQuestionIndex
+    currentQuestionIndex;
   }
 
-//need a setter for dynamic keys page , no need for getter becuase internal code use
+  //need a setter for dynamic keys page , no need for getter becuase internal code use
 
   hideAll() {
     this.TOP_LEVEL_COMPONENTS.forEach(component => $(`.${component}`).hide());
   }
 
   switchViews() { //any place with render is now Renderer.switchViews
-  let html;
-  switch (this.page) {
+    let html;
+    const question = getCurrentQuestion();
+    const { feedback } = this.feedback; 
+    const { current, total } = getProgress();
+
+    switch (this.page) {
     case 'intro':
       if (api.sessionToken) {
         $('.js-start').attr('disabled', false);
@@ -139,65 +135,11 @@ class Renderer {
     default:
       return;
     }
-
-  } 
-  
-
-  const question = getCurrentQuestion();
-  const { feedback } = this.feedback; 
-  const { current, total } = getProgress();
-
-  $('.js-score').html(`<span>Score: ${getScore()}</span>`);
-  $('.js-progress').html(`<span>Question ${current} of ${total}`);
-
-  
-  }
-
-
-const render = function(api) {
-  let html;
-  hideAll();
-
-  const question = getCurrentQuestion();
-  const { feedback } = store; 
-  const { current, total } = getProgress();
-
-  $('.js-score').html(`<span>Score: ${getScore()}</span>`);
-  $('.js-progress').html(`<span>Question ${current} of ${total}`);
-
-  switch (store.page) {
-  case 'intro':
-    if (api.sessionToken) {
-      $('.js-start').attr('disabled', false);
-    }
-  
-    $('.js-intro').show();
-    break;
+    $('.js-progress').html(`<span>Question ${current} of ${total}`);
+    $('.js-score').html(`<span>Score: ${getScore()}</span>`);
     
-  case 'question':
-    html = generateQuestionHtml(question);
-    $('.js-question').html(html);
-    $('.js-question').show();
-    $('.quiz-status').show();
-    break;
-
-  case 'answer':
-    html = generateFeedbackHtml(feedback);
-    $('.js-question-feedback').html(html);
-    $('.js-question-feedback').show();
-    $('.quiz-status').show();
-    break;
-
-  case 'outro':
-    $('.js-outro').show();
-    $('.quiz-status').show();
-    break;
-
-  default:
-    return;
   }
-};
-
+}
 //=======================
 
 
@@ -259,41 +201,77 @@ const getQuestion = function(index) {
   return QUESTIONS[index];
 };
 
-// HTML generator functions
+// HTML generator 
 // ========================
-const generateAnswerItemHtml = function(answer) {
-  return `
+class generateTemplates {
+  constructor(answer, question, feedback) {
+    this.answer = answer;
+    this.question = question;
+    this.feedback = feedback;
+  }
+
+  setAnswer(input) {
+    this.answer = input;
+
+  }
+
+  setQuestion(input) {
+    this.question = input;
+  }
+
+  setFeedback(input) {
+    this.feedback = input;
+  }
+
+  getAnswer() {
+    console.log(this.answer);
+    return this.answer;
+  
+  }
+  
+  getQuestion() {
+    console.log(this.question);
+    return this.question;
+  }
+  
+  getFeedback() {
+    console.log(this.feedback);
+    return this.feedback;
+  }
+
+  generateAnswerItemHtml() {
+    const answers = this.question.answers
+      .map((answer, index) => generateAnswerItemHtml(answer, index))
+      .join('');
+    
+    return `
+        <form>
+          <fieldset>
+            <legend class="question-text">${this.question.text}</legend>
+              ${this.answers}
+              <button type="submit">Submit</button>
+          </fieldset>
+        </form>
+      `;
+  }
+
+  generateQuestionHTML() {
+    return `
     <li class="answer-item">
-      <input type="radio" name="answers" value="${answer}" />
-      <span class="answer-text">${answer}</span>
-    </li>
-  `;
-};
+      <input type="radio" name="answers" value="${this.answer}" />
+      <span class="answer-text">${this.answer}</span>
+    </li>`;
+  }
 
-const generateQuestionHtml = function(question) {
-  const answers = question.answers
-    .map((answer, index) => generateAnswerItemHtml(answer, index))
-    .join('');
-
-  return `
-    <form>
-      <fieldset>
-        <legend class="question-text">${question.text}</legend>
-          ${answers}
-          <button type="submit">Submit</button>
-      </fieldset>
-    </form>
-  `;
-};
-
-const generateFeedbackHtml = function(feedback) {
-  return `
+  generateFeedbackHTML() {
+    return `
     <p>
-      ${feedback}
+      ${this.feedback}
     </p>
     <button class="continue js-continue">Continue</button>
-  `;
-};
+  ` ;
+  }
+}
 
 // Render function - uses `store` object to construct entire page every time it's run
 // ===============
