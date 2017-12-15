@@ -11,8 +11,6 @@ let QUESTIONS = [];
 
 // token is global because store is reset between quiz games, but token should persist for 
 // entire session
-let sessionToken;
-
 const getInitialStore = function(){
   return {
     page: 'intro',
@@ -27,9 +25,7 @@ let store = getInitialStore();
 
 // Helper functions
 // ===============
-const hideAll = function() {
-  TOP_LEVEL_COMPONENTS.forEach(component => $(`.${component}`).hide());
-};
+
 
 class Api {
   constructor() {
@@ -37,12 +33,13 @@ class Api {
   }
 
   //Private Methods
-
+  //#2 - builds url after token fetch
   _buildTokenUrl() {
     return new URL(this.BASE_API_URL + '/api_token.php');
   }
-
+  
   //Public Methods
+  //#1 - fetches token 
   fetchToken(callback) {
     if (this.sessionToken) {
       return callback();
@@ -56,27 +53,154 @@ class Api {
       callback();
     }, err => console.log(err));
   }
+
+  //#3 - builds url for question retrieval after token fetch and fetch url. 
+  //default parameters
+  buildBaseUrl(amt = 10, query = {}) {
+    if (this.sessionToken) {
+      url.searchParams.set('token', this.sessionToken);
+    }
+    const url = this.BASE_API_URL + '/api.php';
+    const queryKeys = Object.keys(query);
+    url.searchParams.set('amount', amt);
+
+    queryKeys.forEach(key => url.searchParams.set(key, query[key]));
+    return url;
+  }
+
+  //#4 - fetches questions
+  fetchQuestions(amt, query, callback) {
+    $.getJSON(this.buildBaseUrl(amt, query), callback, err => console.log(err.message));
+  }
+
 }
 
 Api.prototype.BASE_API_URL = 'https://opentdb.com';
-//const api = new Api();
-
-const buildBaseUrl = function(amt = 10, query = {}) {
-  const url = new URL(BASE_API_URL + '/api.php');
-  const queryKeys = Object.keys(query);
-  url.searchParams.set('amount', amt);
-
-  if (store.sessionToken) {
-    url.searchParams.set('token', store.sessionToken);
+Renderer.prototype.TOP_LEVEL_COMPONENTS = [
+  'js-intro', 'js-question', 'js-question-feedback', 
+  'js-outro', 'js-quiz-status'
+];
+class Store {
+  constructor() {
+  this.feedback = null;
+  this.userAnswer
+  this.QUESTION //render and template
   }
 
-  queryKeys.forEach(key => url.searchParams.set(key, query[key]));
-  return url;
+  getFeedback() {
+    return 
+  }
+}
+
+class Renderer {
+  constructor(api) {
+    this.api = api; //obtains the question data and keeps it constant throughout rendering?
+    this.feedback = null;
+    this.page = 'intro';
+    currentQuestionIndex
+  }
+
+//need a setter for dynamic keys page , no need for getter becuase internal code use
+
+  hideAll() {
+    this.TOP_LEVEL_COMPONENTS.forEach(component => $(`.${component}`).hide());
+  }
+
+  switchViews() { //any place with render is now Renderer.switchViews
+  let html;
+  switch (this.page) {
+    case 'intro':
+      if (api.sessionToken) {
+        $('.js-start').attr('disabled', false);
+      }
+    
+      $('.js-intro').show();
+      break;
+      
+    case 'question':
+      html = generateQuestionHtml(question);
+      $('.js-question').html(html);
+      $('.js-question').show();
+      $('.quiz-status').show();
+      break;
+  
+    case 'answer':
+      html = generateFeedbackHtml(feedback);
+      $('.js-question-feedback').html(html);
+      $('.js-question-feedback').show();
+      $('.quiz-status').show();
+      break;
+  
+    case 'outro':
+      $('.js-outro').show();
+      $('.quiz-status').show();
+      break;
+  
+    default:
+      return;
+    }
+
+  } 
+  
+
+  const question = getCurrentQuestion();
+  const { feedback } = this.feedback; 
+  const { current, total } = getProgress();
+
+  $('.js-score').html(`<span>Score: ${getScore()}</span>`);
+  $('.js-progress').html(`<span>Question ${current} of ${total}`);
+
+  
+  }
+
+
+const render = function(api) {
+  let html;
+  hideAll();
+
+  const question = getCurrentQuestion();
+  const { feedback } = store; 
+  const { current, total } = getProgress();
+
+  $('.js-score').html(`<span>Score: ${getScore()}</span>`);
+  $('.js-progress').html(`<span>Question ${current} of ${total}`);
+
+  switch (store.page) {
+  case 'intro':
+    if (api.sessionToken) {
+      $('.js-start').attr('disabled', false);
+    }
+  
+    $('.js-intro').show();
+    break;
+    
+  case 'question':
+    html = generateQuestionHtml(question);
+    $('.js-question').html(html);
+    $('.js-question').show();
+    $('.quiz-status').show();
+    break;
+
+  case 'answer':
+    html = generateFeedbackHtml(feedback);
+    $('.js-question-feedback').html(html);
+    $('.js-question-feedback').show();
+    $('.quiz-status').show();
+    break;
+
+  case 'outro':
+    $('.js-outro').show();
+    $('.quiz-status').show();
+    break;
+
+  default:
+    return;
+  }
 };
 
-const fetchQuestions = function(amt, query, callback) {
-  $.getJSON(buildBaseUrl(amt, query), callback, err => console.log(err.message));
-};
+//=======================
+
+
 
 const seedQuestions = function(questions) {
   QUESTIONS.length = 0;
@@ -173,49 +297,7 @@ const generateFeedbackHtml = function(feedback) {
 
 // Render function - uses `store` object to construct entire page every time it's run
 // ===============
-const render = function(api) {
-  let html;
-  hideAll();
 
-  const question = getCurrentQuestion();
-  const { feedback } = store; 
-  const { current, total } = getProgress();
-
-  $('.js-score').html(`<span>Score: ${getScore()}</span>`);
-  $('.js-progress').html(`<span>Question ${current} of ${total}`);
-
-  switch (store.page) {
-  case 'intro':
-    if (api.sessionToken) {
-      $('.js-start').attr('disabled', false);
-    }
-  
-    $('.js-intro').show();
-    break;
-    
-  case 'question':
-    html = generateQuestionHtml(question);
-    $('.js-question').html(html);
-    $('.js-question').show();
-    $('.quiz-status').show();
-    break;
-
-  case 'answer':
-    html = generateFeedbackHtml(feedback);
-    $('.js-question-feedback').html(html);
-    $('.js-question-feedback').show();
-    $('.quiz-status').show();
-    break;
-
-  case 'outro':
-    $('.js-outro').show();
-    $('.quiz-status').show();
-    break;
-
-  default:
-    return;
-  }
-};
 
 // Event handler functions
 // =======================
